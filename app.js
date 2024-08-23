@@ -3,6 +3,9 @@ const app=express();
 
 const path=require('path');
 const userModel=require('./models/user')
+const bcrypt=require('bcrypt')
+const jwt=require('jsonwebtoken');
+const { log } = require('console');
 
 app.set("view engine", "ejs");
 app.use(express.json());
@@ -31,13 +34,47 @@ app.get('/delete/:id',async function(req,res){
     res.redirect("/read")
 })
 app.post('/create', async function(req,res){
-    let {name,email,image}=req.body;
-    let createduser=await userModel.create({
-        name,
-        email,
-        image
+    let {name,email, password,image}=req.body;
+
+    bcrypt.genSalt(10,(err,salt)=>{
+        bcrypt.hash(password,salt, async (err, hash)=>{
+            let createduser=await userModel.create({
+                name,
+                email,
+                password:hash,
+                image
+            })
+            let token =jwt.sign({email},"shhhhhh");
+            res.cookie("token",token);
+            res.redirect('./read');
+        })
     })
-    res.redirect('./read');
+})
+app.get('/login',(req,res)=>{
+    res.render("login");
+})
+app.post('/login',async(req,res)=>{
+    let user= await userModel.findOne({email: req.body.email})
+    if(!user) return res.send("something went wrong");
+
+    bcrypt.compare(req.body.password,user.password, function(err,result){
+        if(result) {
+            let token =jwt.sign({email:user.email},"shhhhhh");
+            res.cookie("token",token);
+            res.send("yes you can login");
+        }else{
+            res.send("no you can't login");
+        }
+        
+
+       
+        
+    })
+})
+
+app.get('/logout',(req,res)=>{
+    res.cookie("token","");
+    res.redirect("/");
 })
 // app.get('/create',async (req,res) =>{
 //     const createduser = await userModel.create({
